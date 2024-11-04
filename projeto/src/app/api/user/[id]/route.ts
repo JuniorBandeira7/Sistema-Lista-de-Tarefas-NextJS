@@ -10,6 +10,21 @@ const getToken = require('../../../helpers/get-token')
 export async function GET(req: Request, { params }: { params: { id: string}}){
     const { id } = await params;
 
+    // Busca o token e depois busca o usuario pelo token
+    const token = getToken(req)
+    const tokenUser = await getUserByToken(token)
+
+    if(parseInt(id, 10) !== tokenUser.id){
+        return NextResponse.json(
+            {
+                message: "Acesso negado!"
+            },
+            {
+                status: 422
+            }
+        )
+    }
+
     try {
         const user = await prisma.user.findUnique({
             where: {
