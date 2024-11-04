@@ -11,7 +11,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string}})
     const { id } = await params
 
     const token = getToken(req)
-    const user = getUserByToken(token)
+    const user = await getUserByToken(token)
 
     try {
         // Busca a task para poder terr acesso ao userId
@@ -59,7 +59,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string}}) 
     const { name, cost, dateLimit } = await req.json()
 
     const token = getToken(req)
-    const user = getUserByToken(token)
+    const user = await getUserByToken(token)
 
     try {
         // Busca a task para poder terr acesso ao userId
