@@ -16,7 +16,7 @@ export default function Header() {
             </div>
             <nav className="flex items-center gap-6">
                 <Link href="/editar" className="hover:text-gray-400 font-semibold">Editar</Link>
-                <Link href="/tarefas" className="hover:text-gray-400 font-semibold">Tarefas</Link>
+                <Link href="/" className="hover:text-gray-400 font-semibold">Tarefas</Link>
                 <button 
                     onClick={handleLogout} 
                     className="hover:text-gray-400 font-semibold focus:outline-none"
