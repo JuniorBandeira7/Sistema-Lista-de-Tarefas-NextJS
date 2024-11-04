@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@db/db"
 
 // helpers
-const getUserByToken = require('../../../helpers/get-user-by-token')
-const getToken = require('../../../helpers/get-token')
+const getUserByToken = require('../../helpers/get-user-by-token')
+const getToken = require('../../helpers/get-token')
 
 // CreateTask
 export async function POST(req: Request) {
     const token = getToken(req)
-    const user = getUserByToken(token)
+    const user = await getUserByToken(token)
 
     const { name, cost, dateLimit } = await req.json()
 
@@ -23,6 +23,25 @@ export async function POST(req: Request) {
 
         // Define a ordem como o numero de tarefas que o usuario já possui + 1
         const order = taskCount + 1;
+
+        // Verifica se já existe uma tarefa com o mesmo userId e name
+        const existingTask = await prisma.task.findFirst({
+            where: {
+                userId: user.id,
+                name: name,
+            }
+        })
+
+        if (existingTask) {
+            return NextResponse.json(
+                {
+                    message: "Já existe uma tarefa com o mesmo nome."
+                },
+                {
+                    status: 409
+                }
+            )
+        }
 
         const task = await prisma.task.create({
             data:{
