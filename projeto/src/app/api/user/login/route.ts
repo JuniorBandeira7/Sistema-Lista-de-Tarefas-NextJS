@@ -43,7 +43,7 @@ export async function POST(req: Request){
       if(!user){
         return NextResponse.json(
             {
-                message: 'Email não cadastrado'
+                message: 'Credenciais incorretas'
             },
             {
                 status: 422

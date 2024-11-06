@@ -27,10 +27,10 @@ export default function LoginForm() {
         localStorage.setItem("token", data.token);
         router.push("/"); // Redireciona para a página inicial após o login
       } else {
-        console.error(data.message); // Exibe a mensagem de erro
+        alert(data.message); // Exibe a mensagem de erro
       }
     } catch (error) {
-      console.error("Erro ao fazer login:", error);
+      alert("Erro ao fazer login:");
     }
   };
 
