@@ -11,6 +11,7 @@ export async function GET(req: Request, { params }: { params: { id: string}}){
     const { id } = await params;
 
     // Busca o token e depois busca o usuario pelo token
+    console.log(req)
     const token = getToken(req)
     const tokenUser = await getUserByToken(token)
 

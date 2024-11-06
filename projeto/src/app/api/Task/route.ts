@@ -52,6 +52,7 @@ export async function POST(req: Request) {
                 userId: user.id
                 }
             });
+            console.log(task)
         return NextResponse.json({message: "OK", user, task})
     } catch (error) {
         return NextResponse.json(

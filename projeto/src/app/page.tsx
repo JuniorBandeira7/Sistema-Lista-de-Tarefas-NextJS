@@ -1,101 +1,305 @@
-import Image from "next/image";
+"use client"
+import Header from "../app/components/Header"
+import Button from './components/Button'
+import Link from 'next/link'
+import { DragDropContext, Droppable } from '@hello-pangea/dnd'
+import { Task } from "./components/Task"
+import { useEffect, useState } from "react"
+import { useRouter } from 'next/navigation'
+
+interface Task {
+  id: number
+  name: string
+  cost: number
+  dateLimit: Date
+  order: number
+  userId: number
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [tasks, setTasks] = useState<Array<Task>>([])
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null)
+  const [editedTask, setEditedTask] = useState<Partial<Task>>({})
+  const router = useRouter()
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  function reorder<T>(list: T[], startIndex: number, endIndex: number) {
+    const result = Array.from(list)
+    const [removed] = result.splice(startIndex, 1)
+    result.splice(endIndex, 0, removed)
+    return result
+  }
+
+  // Função para salvar a ordem no banco de dados
+  const saveOrder = async () => {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      router.push("/login")
+      return
+    }
+
+    try {
+      const updatedTasks = tasks.map((task, index) => ({
+        ...task,
+        order: index + 1, // Ajusta a ordem para começar de 1, 2, 3, etc.
+      }))
+
+      // Envia as ordens para a API para salvar no banco de dados
+      const response = await fetch('/api/task/task_order', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tasks: updatedTasks }),
+      })
+
+      if (response.ok) {
+        alert("Ordem salva com sucesso!")
+        fetchTasks() // Chama a função para buscar as tarefas novamente após a atualização
+      } else {
+        alert("Erro ao salvar a ordem")
+      }
+    } catch (error) {
+      console.error("Erro ao salvar a ordem:", error)
+    }
+  }
+
+  // Função chamada após o arrasto
+  function onDragEnd(result: any) {
+    if (!result.destination) return
+
+    const items = reorder(tasks, result.source.index, result.destination.index)
+    setTasks(items)
+
+    // Ajustar as ordens para garantir que sejam consecutivas (1, 2, 3, etc.)
+    const reorderedTasks = items.map((task, index) => ({
+      ...task,
+      order: index + 1,
+    }))
+    setTasks(reorderedTasks)
+  }
+
+  useEffect(() => {
+    const fetchUserTasks = async () => {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        router.push("/login")
+        return
+      }
+
+      try {
+        const response = await fetch('/api/task', {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        })
+        const data = await response.json()
+
+        if (response.ok) {
+          // Ordena as tarefas pela ordem de forma crescente
+          const sortedTasks = data.tasks.sort((a: Task, b: Task) => a.order - b.order)
+          setTasks(sortedTasks)
+        } else {
+          console.log(data.message)
+        }
+      } catch (error) {
+        console.error("Erro ao buscar tarefas:", error)
+      }
+    }
+
+    fetchUserTasks()
+  }, [])
+
+  // Função para buscar tarefas atualizadas após salvar a ordem
+  const fetchTasks = async () => {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      router.push("/login")
+      return
+    }
+
+    try {
+      const response = await fetch('/api/task', {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        // Ordena as tarefas pela ordem de forma crescente
+        const sortedTasks = data.tasks.sort((a: Task, b: Task) => a.order - b.order)
+        setTasks(sortedTasks)
+      } else {
+        console.log(data.message)
+      }
+    } catch (error) {
+      console.error("Erro ao buscar tarefas:", error)
+    }
+  }
+
+  const formatDate = (date: Date) => new Date(date).toLocaleDateString()
+
+  const handleEdit = (taskId: number) => {
+    setEditingTaskId(taskId)
+    const taskToEdit = tasks.find(task => task.id === taskId)
+    if (taskToEdit) {
+      setEditedTask({ ...taskToEdit })
+    }
+  }
+
+  const handleDelete = async (taskId: number) => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        router.push("/login")
+        return
+      }
+
+      if (confirm("Tem certeza que quer excluir?")) {
+        const response = await fetch(`/api/task/${taskId}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          }
+        })
+
+        setTasks((prevTasks) => prevTasks.filter(task => task.id !== taskId))
+        alert("Tarefa excluída com sucesso!")
+      }
+    } catch (error) {
+      alert("Erro ao excluir tarefa")
+      console.error(error)
+    }
+  }
+
+  const handleConfirmEdit = async (taskId: number) => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        router.push("/login")
+        return
+      }
+
+      const response = await fetch(`/api/task/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editedTask),
+      })
+
+      if (response.ok) {
+        setTasks(prevTasks => prevTasks.map(task =>
+          task.id === taskId ? { ...task, ...editedTask } : task
+        ))
+        setEditingTaskId(null)
+        setEditedTask({})
+      } else {
+        alert("Erro ao salvar alterações.")
+      }
+    } catch (error) {
+      console.error("Erro ao salvar alterações:", error)
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setEditedTask(prev => ({
+      ...prev,
+      [name]: name === 'cost' ? parseFloat(value) : value
+    }))
+  }
+
+  return (
+    <>
+      <Header />
+      <div className="container mt-4">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="tasks" direction="vertical" type="list">
+            {(provided) => (
+              <ul className="list-group"
+                ref={provided.innerRef}
+                {...provided.droppableProps}>
+                {tasks.map((task, index) => (
+                  <Task key={task.id} task={task} index={index}className={task.cost > 1000
+                    ? "list-group-item d-flex justify-content-between align-items-center bg-red-900 text-white p-3"
+                    : "list-group-item d-flex justify-content-between align-items-center bg-gray-800 text-white p-3"}>
+                    <div>
+                      {editingTaskId === task.id ? (
+                        <>
+                          <input
+                            type="text"
+                            name="name"
+                            value={editedTask.name || ''}
+                            onChange={handleInputChange}
+                            className="form-control mb-2"
+                          />
+                          <input
+                            type="number"
+                            name="cost"
+                            value={editedTask.cost || 0}
+                            onChange={handleInputChange}
+                            className="form-control mb-2"
+                          />
+                          <input
+                            type="date"
+                            name="dateLimit"
+                            value={editedTask.dateLimit ? new Date(editedTask.dateLimit).toISOString().split('T')[0] : ''}
+                            onChange={handleInputChange}
+                            className="form-control mb-2"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <h2 className="mb-1"><strong>{task.name}</strong></h2>
+                          <p className="mb-1"><strong>Custo:</strong> R$ {Number(task.cost).toFixed(2)}</p>
+                          <p className="mb-1"><strong>Data Limite:</strong> {formatDate(task.dateLimit)}</p>
+                        </>
+                      )}
+                    </div>
+                    <div>
+                      {editingTaskId === task.id ? (
+                        <Button onClick={() => handleConfirmEdit(task.id)}>
+                          Confirmar
+                        </Button>
+                      ) : (
+                        <>
+                          <button onClick={() => handleEdit(task.id)} className="btn btn-link text-info me-2">
+                            <i className="bi bi-pencil-square"></i>
+                          </button>
+                          <button onClick={() => handleDelete(task.id)} className="btn btn-link text-danger">
+                            <i className="bi bi-x-circle"></i>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </Task>
+                ))}
+                {provided.placeholder}
+              </ul>
+            )}
+          </Droppable>
+        </DragDropContext>
+
+        {/* Botão para salvar a ordem */}
+        <div className="text-center mt-4">
+          <Button onClick={saveOrder}>
+            Salvar Ordem
+          </Button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+
+        {/* Botão para criar uma nova tarefa */}
+        <div className="text-center mt-4">
+          <Link href={"/criar_tarefa"}>
+            <Button>
+              Criar Nova Tarefa
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </>
+  )
 }
